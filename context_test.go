@@ -19,13 +19,13 @@ func TestContextLifecycle(t *testing.T) {
 	ctx, err := malgo.InitContext(backends, config, nil)
 	require.Nil(t, err, "No error expected initializing context")
 	require.NotNil(t, ctx, "Context instance expected")
-	assert.NotEqual(t, malgo.Context(0), ctx.Context, "Context value expected")
+	assert.NotEqual(t, malgo.Context{}, ctx.Context, "Context value expected")
 
 	err = ctx.Uninit()
 	assert.Nil(t, err, "No error expected uninitializing")
 
 	ctx.Free()
-	assert.Equal(t, malgo.Context(0), ctx.Context, "Expected context value to be reset")
+	assert.Equal(t, malgo.Context{}, ctx.Context, "Expected context value to be reset")
 }
 
 func TestContextDeviceEnumeration(t *testing.T) {

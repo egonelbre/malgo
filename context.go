@@ -65,15 +65,12 @@ type AllocationCallbacks struct {
 }
 
 // Context is used for selecting and initializing the relevant backends.
-type Context uintptr
-
-// DefaultContext is an unspecified context. It can be used to initialize a streaming
-// function with implicit context defaults.
-const DefaultContext Context = 0
-
-func (ctx Context) cptr() *C.ma_context {
-	return (*C.ma_context)(unsafe.Pointer(ctx))
+type Context struct {
+	ptr *C.ma_context
 }
+
+func (ctx Context) isNil() bool         { return ctx.ptr == nil }
+func (ctx Context) cptr() *C.ma_context { return ctx.ptr }
 
 // Uninit uninitializes a context.
 // Results are undefined if you call this while any device created by this context is still active.
@@ -81,6 +78,10 @@ func (ctx Context) Uninit() error {
 	result := C.ma_context_uninit(ctx.cptr())
 	return errorFromResult(Result(result))
 }
+
+// DefaultContext is an unspecified context. It can be used to initialize a streaming
+// function with implicit context defaults.
+var DefaultContext = Context{}
 
 // Devices retrieves basic information about every active playback or capture device.
 func (ctx Context) Devices(kind DeviceType) ([]DeviceInfo, error) {
@@ -152,9 +153,11 @@ type AllocatedContext struct {
 func InitContext(backends []Backend, config ContextConfig, logProc LogProc) (*AllocatedContext, error) {
 	C.goSetContextConfigCallbacks(config.cptr())
 	ctx := AllocatedContext{
-		Context: Context(C.ma_malloc(C.size_t(unsafe.Sizeof(C.ma_context{})), nil)),
+		Context: Context{
+			ptr: (*C.ma_context)(C.ma_malloc(C.size_t(unsafe.Sizeof(C.ma_context{})), nil)),
+		},
 	}
-	if ctx.Context == 0 {
+	if ctx.Context.isNil() {
 		return nil, ErrOutOfMemory
 	}
 	ctx.SetLogProc(logProc)
@@ -178,10 +181,10 @@ func InitContext(backends []Backend, config ContextConfig, logProc LogProc) (*Al
 // Free must be called when the allocated data is no longer used.
 // This function must only be called for an uninitialized context.
 func (ctx *AllocatedContext) Free() {
-	if ctx.Context == 0 {
+	if ctx.Context.isNil() {
 		return
 	}
 	ctx.SetLogProc(nil)
 	C.ma_free(unsafe.Pointer(ctx.cptr()), nil)
-	ctx.Context = 0
+	ctx.Context = Context{}
 }
